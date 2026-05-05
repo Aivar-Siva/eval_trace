@@ -1,0 +1,9 @@
+{
+  "task_id": "task_003",
+  "input": "Is my internet connection working? Test connectivity.",
+  "expected_output": "internet",
+  "ground_truth_tool": "test-internet",
+  "ground_truth_intent": "network_diagnostics",
+  "expected_tool_input": {},
+  "optimal_turns": 1
+}

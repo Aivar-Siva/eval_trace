@@ -1,0 +1,9 @@
+langchain-core==0.3.59
+jsonschema==4.23.0
+python-dotenv==1.1.0
+requests==2.32.3
+fastapi==0.115.12
+uvicorn==0.34.2
+rich==13.9.4
+ragas==0.2.15
+psutil==6.1.1

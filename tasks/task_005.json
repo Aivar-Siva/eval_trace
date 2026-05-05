@@ -1,0 +1,9 @@
+{
+  "task_id": "task_005",
+  "input": "What is the chrome.exe process doing? Show me its CPU and memory usage.",
+  "expected_output": "chrome",
+  "ground_truth_tool": "get-process-info",
+  "ground_truth_intent": "process_management",
+  "expected_tool_input": {"process_name": "chrome"},
+  "optimal_turns": 1
+}

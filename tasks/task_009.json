@@ -1,0 +1,9 @@
+{
+  "task_id": "task_009",
+  "input": "Find large files in my Downloads folder that are bigger than 500MB.",
+  "expected_output": "size_mb",
+  "ground_truth_tool": "find-large-files",
+  "ground_truth_intent": "storage_management",
+  "expected_tool_input": {"directory": "C:\\Users", "min_size_mb": 500},
+  "optimal_turns": 1
+}

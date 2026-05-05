@@ -1,0 +1,9 @@
+{
+  "task_id": "task_001",
+  "input": "What is my current CPU usage and which processes are consuming the most CPU?",
+  "expected_output": "cpu",
+  "ground_truth_tool": "get-cpu-usage",
+  "ground_truth_intent": "system_monitoring",
+  "expected_tool_input": {},
+  "optimal_turns": 1
+}

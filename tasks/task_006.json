@@ -1,0 +1,9 @@
+{
+  "task_id": "task_006",
+  "input": "Is my system secure? Check Windows Defender and firewall status.",
+  "expected_output": "protected",
+  "ground_truth_tool": "check-windows-defender",
+  "ground_truth_intent": "security_assessment",
+  "expected_tool_input": {},
+  "optimal_turns": 2
+}

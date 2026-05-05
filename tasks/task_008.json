@@ -1,0 +1,9 @@
+{
+  "task_id": "task_008",
+  "input": "My system crashed earlier. Show me recent Windows errors from the last 24 hours.",
+  "expected_output": "error",
+  "ground_truth_tool": "get-recent-errors",
+  "ground_truth_intent": "troubleshooting",
+  "expected_tool_input": {},
+  "optimal_turns": 1
+}

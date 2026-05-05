@@ -1,0 +1,9 @@
+{
+  "task_id": "task_007",
+  "input": "What are my PC specs? Give me OS version, CPU, and RAM details.",
+  "expected_output": "processor",
+  "ground_truth_tool": "get-system-info",
+  "ground_truth_intent": "hardware_info",
+  "expected_tool_input": {},
+  "optimal_turns": 1
+}

@@ -1,0 +1,9 @@
+{
+  "task_id": "task_002",
+  "input": "My computer feels slow. Check memory usage and tell me what's consuming the most RAM.",
+  "expected_output": "memory",
+  "ground_truth_tool": "get-memory-usage",
+  "ground_truth_intent": "system_monitoring",
+  "expected_tool_input": {},
+  "optimal_turns": 1
+}

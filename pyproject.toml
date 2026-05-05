@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agent-eval-sdk"
+version = "0.1.0"
+description = "Framework-agnostic agent evaluation SDK"
+requires-python = ">=3.11"
+dependencies = [
+    "langchain-core>=0.3",
+    "langchain-groq>=0.2",
+    "langchain-community>=0.3",
+    "langgraph>=0.2",
+    "jsonschema>=4.0",
+    "python-dotenv>=1.0",
+    "requests>=2.31",
+    "fastapi>=0.111",
+    "uvicorn>=0.29",
+    "rich>=13.0",
+    "tavily-python>=0.3",
+    "ragas>=0.2",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["agent_eval"]
