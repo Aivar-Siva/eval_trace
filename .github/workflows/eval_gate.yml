@@ -1,0 +1,29 @@
+name: Eval Gate
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    env:
+      GROQ_API_KEY:   ${{ secrets.GROQ_API_KEY }}
+      TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+      BEDROCK_URL:    ${{ secrets.BEDROCK_URL }}
+      AGENT_VERSION:  ${{ github.sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r requirements.txt
+
+      - name: Run evals
+        run: python main.py --version "$AGENT_VERSION"
+
+      - name: Deployment gate
+        run: python -m agent_eval.scoring.gate --version "$AGENT_VERSION"
