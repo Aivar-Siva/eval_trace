@@ -1,0 +1,9 @@
+{
+  "task_id": "task_004",
+  "input": "How much disk space do I have left on my drives?",
+  "expected_output": "disk",
+  "ground_truth_tool": "get-disk-usage",
+  "ground_truth_intent": "storage_monitoring",
+  "expected_tool_input": {},
+  "optimal_turns": 1
+}
