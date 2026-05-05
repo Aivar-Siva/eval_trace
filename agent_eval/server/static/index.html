@@ -32,6 +32,9 @@
   .span-block { background: #12141e; border-left: 3px solid #4f46e5; padding: 0.75rem 1rem; margin-bottom: 0.5rem; border-radius: 0 6px 6px 0; font-size: 0.82rem; }
   .span-block .label { color: #718096; font-size: 0.75rem; margin-bottom: 0.25rem; }
   .span-block pre { white-space: pre-wrap; word-break: break-word; color: #a0aec0; }
+  .metric-cell { position: relative; cursor: help; border-bottom: 1px dashed #4a5568; display: inline-block; }
+  .metric-cell .tip { display: none; position: absolute; left: 0; top: 1.4em; z-index: 10; background: #2d3148; border: 1px solid #4f46e5; border-radius: 6px; padding: 0.5rem 0.75rem; width: 240px; font-size: 0.78rem; color: #cbd5e0; line-height: 1.4; white-space: normal; pointer-events: none; }
+  .metric-cell:hover .tip { display: block; }
   #trace-detail { display: none; }
   .back-btn { background: none; border: none; color: #4f46e5; cursor: pointer; font-size: 0.85rem; margin-bottom: 1rem; }
 </style>
@@ -85,6 +88,19 @@
 <script>
 const API = '';
 
+const METRIC_INFO = {
+  intent_correctness:      { layer: 1, type: 'Deterministic', desc: 'Did the agent correctly identify the task intent? (e.g. information_retrieval vs calculation). String match against ground truth label.' },
+  tool_selection:          { layer: 1, type: 'Deterministic', desc: 'Did the agent pick the right tool for the task? Exact match of selected tool name vs ground truth tool.' },
+  reasoning_quality:       { layer: 1, type: 'LLM-as-Judge',  desc: 'Was the agent\'s reasoning before calling a tool sound and logical? Scored 1–5 by Bedrock Llama 3.3 70B, normalised to 0–1.' },
+  param_schema_check:      { layer: 2, type: 'Deterministic', desc: 'Do the tool call parameters conform to the tool\'s JSON schema? Validates types and required fields using jsonschema.' },
+  param_value_check:       { layer: 2, type: 'Deterministic', desc: 'Are the tool parameter values correct? Partial match — fraction of expected key/value pairs found in actual call.' },
+  result_interpretation:   { layer: 2, type: 'LLM-as-Judge',  desc: 'Given the tool output, was the agent\'s next action appropriate? Scored 1–5 by Bedrock Llama 3.3 70B.' },
+  task_success:            { layer: 3, type: 'Deterministic', desc: 'Did the agent\'s final answer contain the expected output? Case-insensitive substring match.' },
+  efficiency:              { layer: 3, type: 'Deterministic', desc: 'How efficiently did the agent complete the task? optimal_turns / actual_turns, capped at 1.0. From the TRACE paper.' },
+  hallucination:           { layer: 3, type: 'LLM-as-Judge',  desc: 'Does the final answer contain claims not supported by any tool output? Faithfulness check scored 1–5 by Bedrock Llama 3.3 70B.' },
+  trajectory_quality:      { layer: 3, type: 'Agent-as-Judge', desc: 'Full trajectory score: goal completion + reasoning coherence across all turns. A second Bedrock agent inspects each span and produces a 0–1 score.' },
+};
+
 function show(tab) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
@@ -122,7 +138,17 @@ async function loadScores() {
     data: { labels: metrics, datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#a0aec0' } } },
+      plugins: {
+        legend: { labels: { color: '#a0aec0' } },
+        tooltip: {
+          callbacks: {
+            afterLabel: ctx => {
+              const info = METRIC_INFO[ctx.label];
+              return info ? `${info.type} · Layer ${info.layer}\n${info.desc.slice(0, 80)}…` : '';
+            }
+          }
+        }
+      },
       scales: {
         x: { ticks: { color: '#718096' }, grid: { color: '#1e2235' } },
         y: { min: 0, max: 1, ticks: { color: '#718096' }, grid: { color: '#1e2235' } },
@@ -136,11 +162,13 @@ async function loadScores() {
   data.forEach(row => {
     const score = +row.avg_score;
     const cls = score >= 0.7 ? 'badge-green' : score >= 0.4 ? 'badge-blue' : 'badge-red';
+    const info = METRIC_INFO[row.metric] || {};
+    const metricCell = `<span class="metric-cell">${row.metric}<span class="tip"><b>${info.type || ''}</b> · Layer ${info.layer || row.layer}<br>${info.desc || ''}</span></span>`;
     tbody.insertAdjacentHTML('beforeend', `
       <tr>
         <td>${row.agent_version}</td>
         <td>Layer ${row.layer}</td>
-        <td>${row.metric}</td>
+        <td>${metricCell}</td>
         <td><span class="badge ${cls}">${score.toFixed(3)}</span></td>
         <td>${row.n}</td>
       </tr>`);
