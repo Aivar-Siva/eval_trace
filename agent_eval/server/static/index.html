@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Eval Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #0f1117; color: #e2e8f0; }
+  header { padding: 1.2rem 2rem; background: #1a1d27; border-bottom: 1px solid #2d3148; display: flex; align-items: center; gap: 1rem; }
+  header h1 { font-size: 1.2rem; font-weight: 600; }
+  nav { display: flex; gap: 0.5rem; margin-left: auto; }
+  nav button { padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid #3d4268; background: transparent; color: #a0aec0; cursor: pointer; font-size: 0.85rem; }
+  nav button.active { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+  main { padding: 1.5rem 2rem; max-width: 1200px; margin: 0 auto; }
+  .section { display: none; }
+  .section.active { display: block; }
+  h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.05em; }
+  .card { background: #1a1d27; border: 1px solid #2d3148; border-radius: 10px; padding: 1.2rem; margin-bottom: 1.2rem; }
+  .chart-wrap { position: relative; height: 320px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th { text-align: left; padding: 0.5rem 0.75rem; color: #718096; border-bottom: 1px solid #2d3148; }
+  td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #1e2235; }
+  tr:hover td { background: #1e2235; }
+  .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
+  .badge-green { background: #1a3a2a; color: #48bb78; }
+  .badge-red   { background: #3a1a1a; color: #fc8181; }
+  .badge-blue  { background: #1a2a3a; color: #63b3ed; }
+  .filters { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .filters select, .filters input { background: #1a1d27; border: 1px solid #2d3148; color: #e2e8f0; padding: 0.4rem 0.75rem; border-radius: 6px; font-size: 0.85rem; }
+  .span-block { background: #12141e; border-left: 3px solid #4f46e5; padding: 0.75rem 1rem; margin-bottom: 0.5rem; border-radius: 0 6px 6px 0; font-size: 0.82rem; }
+  .span-block .label { color: #718096; font-size: 0.75rem; margin-bottom: 0.25rem; }
+  .span-block pre { white-space: pre-wrap; word-break: break-word; color: #a0aec0; }
+  #trace-detail { display: none; }
+  .back-btn { background: none; border: none; color: #4f46e5; cursor: pointer; font-size: 0.85rem; margin-bottom: 1rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔍 Agent Eval Dashboard</h1>
+  <nav>
+    <button class="active" onclick="show('scores')">Score History</button>
+    <button onclick="show('traces')">Trace Browser</button>
+  </nav>
+</header>
+<main>
+
+<!-- SCORES SECTION -->
+<div id="scores" class="section active">
+  <div class="card">
+    <h2>Score Comparison by Version</h2>
+    <div class="chart-wrap"><canvas id="scoreChart"></canvas></div>
+  </div>
+  <div class="card">
+    <h2>All Metrics</h2>
+    <table id="scoreTable">
+      <thead><tr><th>Version</th><th>Layer</th><th>Metric</th><th>Avg Score</th><th>Runs</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TRACES SECTION -->
+<div id="traces" class="section">
+  <div class="filters">
+    <select id="versionFilter" onchange="loadTraces()"><option value="">All versions</option></select>
+    <input id="taskFilter" placeholder="Filter by task_id" oninput="loadTraces()">
+  </div>
+  <div id="trace-list">
+    <div class="card">
+      <table id="traceTable">
+        <thead><tr><th>Trace ID</th><th>Version</th><th>Task</th><th>Timestamp</th><th>Success</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="trace-detail">
+    <button class="back-btn" onclick="closeDetail()">← Back to traces</button>
+    <div id="detail-content"></div>
+  </div>
+</div>
+
+</main>
+<script>
+const API = '';
+
+function show(tab) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById(tab).classList.add('active');
+  event.target.classList.add('active');
+  if (tab === 'traces') loadTraces();
+}
+
+// ── Score History ─────────────────────────────────────────────────────────────
+let scoreChart = null;
+
+async function loadScores() {
+  const data = await fetch(`${API}/api/scores`).then(r => r.json());
+  if (!data.length) return;
+
+  // Build chart: group by metric, one dataset per version
+  const versions = [...new Set(data.map(d => d.agent_version))].sort();
+  const metrics  = [...new Set(data.map(d => d.metric))];
+  const COLORS   = ['#4f46e5','#10b981','#f59e0b','#ef4444','#8b5cf6'];
+
+  const datasets = versions.map((v, i) => ({
+    label: v,
+    data: metrics.map(m => {
+      const row = data.find(d => d.agent_version === v && d.metric === m);
+      return row ? +row.avg_score.toFixed(3) : null;
+    }),
+    backgroundColor: COLORS[i % COLORS.length] + 'cc',
+    borderColor: COLORS[i % COLORS.length],
+    borderWidth: 1,
+  }));
+
+  if (scoreChart) scoreChart.destroy();
+  scoreChart = new Chart(document.getElementById('scoreChart'), {
+    type: 'bar',
+    data: { labels: metrics, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#a0aec0' } } },
+      scales: {
+        x: { ticks: { color: '#718096' }, grid: { color: '#1e2235' } },
+        y: { min: 0, max: 1, ticks: { color: '#718096' }, grid: { color: '#1e2235' } },
+      },
+    },
+  });
+
+  // Table
+  const tbody = document.querySelector('#scoreTable tbody');
+  tbody.innerHTML = '';
+  data.forEach(row => {
+    const score = +row.avg_score;
+    const cls = score >= 0.7 ? 'badge-green' : score >= 0.4 ? 'badge-blue' : 'badge-red';
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>${row.agent_version}</td>
+        <td>Layer ${row.layer}</td>
+        <td>${row.metric}</td>
+        <td><span class="badge ${cls}">${score.toFixed(3)}</span></td>
+        <td>${row.n}</td>
+      </tr>`);
+  });
+}
+
+// ── Trace Browser ─────────────────────────────────────────────────────────────
+async function loadVersionFilter() {
+  const versions = await fetch(`${API}/api/versions`).then(r => r.json());
+  const sel = document.getElementById('versionFilter');
+  versions.forEach(v => sel.insertAdjacentHTML('beforeend', `<option value="${v}">${v}</option>`));
+}
+
+async function loadTraces() {
+  const version = document.getElementById('versionFilter').value;
+  const taskId  = document.getElementById('taskFilter').value;
+  let url = `${API}/api/traces?limit=50`;
+  if (version) url += `&version=${encodeURIComponent(version)}`;
+  if (taskId)  url += `&task_id=${encodeURIComponent(taskId)}`;
+  const data = await fetch(url).then(r => r.json());
+
+  const tbody = document.querySelector('#traceTable tbody');
+  tbody.innerHTML = '';
+  data.forEach(t => {
+    const success = t.final?.success;
+    const cls = success === true ? 'badge-green' : success === false ? 'badge-red' : 'badge-blue';
+    const label = success === true ? 'pass' : success === false ? 'fail' : 'partial';
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr style="cursor:pointer" onclick="openTrace('${t.trace_id}')">
+        <td style="font-family:monospace;font-size:0.75rem">${t.trace_id?.slice(0,8)}…</td>
+        <td>${t.agent_version || '-'}</td>
+        <td>${t.task_id || '-'}</td>
+        <td>${(t.timestamp_start || '').slice(0,19).replace('T',' ')}</td>
+        <td><span class="badge ${cls}">${label}</span></td>
+      </tr>`);
+  });
+}
+
+async function openTrace(traceId) {
+  const spans = await fetch(`${API}/api/traces/${traceId}`).then(r => r.json());
+  document.getElementById('trace-list').style.display = 'none';
+  document.getElementById('trace-detail').style.display = 'block';
+
+  const el = document.getElementById('detail-content');
+  el.innerHTML = `<h2 style="margin-bottom:1rem">Trace: ${traceId}</h2>`;
+
+  spans.forEach((span, i) => {
+    const op  = span.operational || {};
+    const cog = span.cognitive   || {};
+    const fin = span.final       || {};
+
+    if (op.tool_name) {
+      el.insertAdjacentHTML('beforeend', `
+        <div class="span-block">
+          <div class="label">Turn ${op.turn_number || i+1} — Tool Call</div>
+          <pre><b>Tool:</b> ${op.tool_name}
+<b>Input:</b> ${JSON.stringify(op.tool_input || {})}
+<b>Output:</b> ${(op.tool_output || '').slice(0, 300)}
+<b>Next action:</b> ${op.next_action || '-'}</pre>
+        </div>`);
+    }
+    if (cog.reasoning_text) {
+      el.insertAdjacentHTML('beforeend', `
+        <div class="span-block" style="border-left-color:#10b981">
+          <div class="label">Reasoning</div>
+          <pre>${(cog.reasoning_text || '').slice(0, 400)}</pre>
+        </div>`);
+    }
+    if (fin.output) {
+      el.insertAdjacentHTML('beforeend', `
+        <div class="span-block" style="border-left-color:#f59e0b">
+          <div class="label">Final Output — turns: ${fin.total_turns}, success: ${fin.success}</div>
+          <pre>${(fin.output || '').slice(0, 600)}</pre>
+        </div>`);
+    }
+  });
+}
+
+function closeDetail() {
+  document.getElementById('trace-list').style.display = 'block';
+  document.getElementById('trace-detail').style.display = 'none';
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadScores();
+loadVersionFilter();
+</script>
+</body>
+</html>
