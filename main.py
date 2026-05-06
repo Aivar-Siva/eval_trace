@@ -49,6 +49,7 @@ def run_version(version: str, tasks: list[dict]):
                 query=task["input"],
                 bedrock_url=BEDROCK_URL,
                 tracer=tracer,
+                version=version,
             )
         except Exception as e:
             console.print(f"  [red]Agent error: {e}[/red]")
