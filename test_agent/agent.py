@@ -35,10 +35,12 @@ def _tool_descriptions() -> str:
     return "\n".join(lines)
 
 
-_SYSTEM = f"""You are a Windows system diagnosis assistant.
+_TOOLS = _tool_descriptions()
+
+_SYSTEM_V1 = f"""You are a Windows system diagnosis assistant.
 You have access to these tools:
 
-{_tool_descriptions()}
+{_TOOLS}
 
 To call a tool, respond with EXACTLY this format (nothing else on that line):
 TOOL_CALL: {{"tool": "<tool-name>", "args": {{...}}}}
@@ -47,6 +49,31 @@ When you have enough information to answer, respond with:
 FINAL: <your answer>
 
 Think step by step. Use the minimum tools needed."""
+
+_SYSTEM_V2 = f"""You are a Windows system diagnosis assistant.
+You have access to these tools:
+
+{_TOOLS}
+
+Tool routing rules — always follow these:
+- CPU questions → get-cpu-usage
+- RAM / memory questions → get-memory-usage
+- Internet / connectivity questions → test-internet
+- Disk space questions → get-disk-usage
+- Specific process questions → get-process-info (pass process_name)
+- Antivirus / firewall questions → check-windows-defender
+- System specs / OS info → get-system-info
+- Windows errors / event log → get-recent-errors
+- Large files → find-large-files (pass directory and min_size_mb)
+- Disk I/O / disk activity → get-disk-io
+
+To call a tool, respond with EXACTLY this format (nothing else on that line):
+TOOL_CALL: {{"tool": "<tool-name>", "args": {{...}}}}
+
+When you have enough information to answer, respond with:
+FINAL: <your answer>
+
+Use exactly one tool per query unless the question explicitly requires more."""
 
 
 # ── Bedrock call ───────────────────────────────────────────────────────────────
@@ -75,14 +102,15 @@ def _llm(messages: list[dict], url: str) -> str:
 
 # ── ReAct loop ─────────────────────────────────────────────────────────────────
 
-def run(query: str, bedrock_url: str, tracer=None, max_turns: int = 8) -> str:
+def run(query: str, bedrock_url: str, tracer=None, version: str = "v1", max_turns: int = 8) -> str:
     """
     Run the agent. If tracer (BaseTracer) is provided, all LLM + tool calls are logged.
     Returns the final answer string.
     """
+    system = _SYSTEM_V2 if version == "v2" else _SYSTEM_V1
     registry = _build_registry()
     messages = [
-        {"role": "user", "content": _SYSTEM + f"\n\nUser query: {query}"}
+        {"role": "user", "content": system + f"\n\nUser query: {query}"}
     ]
     turn = 0
 
